@@ -16,7 +16,9 @@ public class VCVerificationController {
     }
 
     @PostMapping()
-    public VCVerificationStatusDto verify(@RequestBody String vc) {
-        return VCVerificationService.verify(vc);
+    public VCVerificationStatusDto verify(@RequestBody String vc,
+                                          @RequestParam(name = "verifyIssuer", required = false) Boolean verifyIssuer) {
+        // Without the parameter the original single-argument path is used, so behaviour is unchanged.
+        return verifyIssuer == null ? VCVerificationService.verify(vc) : VCVerificationService.verify(vc, verifyIssuer);
     }
 }

@@ -17,7 +17,7 @@ import {
   THROTTLE_FRAMES_PER_SEC,
   ZOOM_STEP,
 } from "../../utils/constants";
-import { vcSubmission, vcVerification } from "../../utils/api";
+import { vcSubmission, vcVerificationDetailed } from "../../utils/api";
 import {
   decodeQrData,
   extractRedirectUrlFromQrData,
@@ -29,6 +29,7 @@ import "./QRCodeVerification.css";
 
 const QRCodeVerification: React.FC<QRCodeVerificationProps> = ({
   scannerActive = true,
+  verifyIssuer,
   triggerElement,
   verifyServiceUrl,
   transactionId,
@@ -355,8 +356,8 @@ const QRCodeVerification: React.FC<QRCodeVerificationProps> = ({
         const txnId = await vcSubmission(vc, verifyServiceUrl, transactionId);
         onVCReceived(txnId);
       } else if (onVCProcessed) {
-        const status = await vcVerification(vc, verifyServiceUrl);
-        onVCProcessed([{ vc, vcStatus: status }]);
+        const { verificationStatus, issuerVerification } = await vcVerificationDetailed(vc, verifyServiceUrl, verifyIssuer);
+        onVCProcessed([{ vc, vcStatus: verificationStatus, ...(issuerVerification ? { issuerVerification } : {}) }]);
       }
     } catch (error) {
       handleError(error);
