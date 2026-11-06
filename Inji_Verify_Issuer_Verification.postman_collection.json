@@ -1,0 +1,1203 @@
+{
+  "info": {
+    "_postman_id": "47d179f1-0e9e-4fc2-954f-f1cf82e43189",
+    "name": "Inji Verify - Issuer Verification (QA)",
+    "description": "QA collection for issuer verification on tag v0.14.0. Read QA-HANDOVER.md first. Each request states the server profile it needs; folders 2-4 need the service restarted with a different registry fixture/profile between runs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Baseline and regression (any profile)",
+      "item": [
+        {
+          "name": "0.1 Valid VC, no parameter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "if (pm.collectionVariables.get(\"featureEnabled\") !== \"true\") {",
+                  "  pm.test(\"feature disabled: no issuerVerification key\", () => pm.expect(j).to.not.have.property(\"issuerVerification\"));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ]
+            },
+            "description": "Existing behaviour. With the feature disabled the response must be exactly {verificationStatus} (no issuerVerification key)."
+          }
+        },
+        {
+          "name": "0.2 Tampered VC",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is INVALID\", () => pm.expect(j.verificationStatus).to.eql(\"INVALID\"));",
+                  "pm.test(\"no issuerVerification for invalid signature\", () => pm.expect(j).to.not.have.property(\"issuerVerification\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_tampered}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ]
+            },
+            "description": "Signature invalid. issuerVerification must be ABSENT in every profile: forged input must never trigger DID or registry lookups. Also confirm in the server log/network that no outbound request was made."
+          }
+        },
+        {
+          "name": "0.3 Empty body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ]
+            },
+            "description": "Existing behaviour: 400."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Parameter handling (feature enabled)",
+      "item": [
+        {
+          "name": "1.1 verifyIssuer=false",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"no issuerVerification\", () => pm.expect(pm.response.json()).to.not.have.property(\"issuerVerification\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Explicit opt-out wins over run-by-default."
+          }
+        },
+        {
+          "name": "1.2 verifyIssuer=true",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "pm.test(\"overallStatus is one of TRUSTED/UNTRUSTED/INCONCLUSIVE\", () => pm.expect([\"TRUSTED\",\"UNTRUSTED\",\"INCONCLUSIVE\"]).to.include(j.issuerVerification.overallStatus));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Explicit opt-in. Requires feature enabled. Any registry profile."
+          }
+        },
+        {
+          "name": "1.3 verifyIssuer=abc (invalid)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "abc"
+                }
+              ]
+            },
+            "description": "Non-boolean value. Spring returns 400."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Policy A (strict registry) - one fixture per run",
+      "item": [
+        {
+          "name": "2.1 Active issuer -> TRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is TRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"TRUSTED\"));",
+                  "pm.test(\"displayStatus is TRUSTED_ISSUER\", () => pm.expect(iv.displayStatus).to.eql(\"TRUSTED_ISSUER\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "",
+                  "pm.test(\"check SIGNATURE_KEY_AUTHORIZED is PASS\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"SIGNATURE_KEY_AUTHORIZED\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"PASS\");",
+                  "});",
+                  "",
+                  "pm.test(\"check ISSUER_REGISTERED is PASS\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"ISSUER_REGISTERED\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"PASS\");",
+                  "});",
+                  "",
+                  "pm.test(\"check CREDENTIAL_TYPE_AUTHORIZED is PASS\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"CREDENTIAL_TYPE_AUTHORIZED\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"PASS\");",
+                  "});",
+                  "",
+                  "pm.test(\"both questions answered separately\", () => {",
+                  "  pm.expect(iv.cryptographicAuthenticity).to.eql(\"VERIFIED\");",
+                  "  pm.expect(iv.organizationalTrust).to.eql(\"TRUSTED\");",
+                  "});",
+                  "pm.test(\"issuer name comes from registry\", () => pm.expect(iv.issuerName).to.eql(\"QA Test Authority\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-active.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.2 Suspended -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "pm.test(\"displayStatus is ISSUER_SUSPENDED\", () => pm.expect(iv.displayStatus).to.eql(\"ISSUER_SUSPENDED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-suspended.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.3 Revoked -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "pm.test(\"displayStatus is ISSUER_REVOKED\", () => pm.expect(iv.displayStatus).to.eql(\"ISSUER_REVOKED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-revoked.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.4 Deactivated -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "",
+                  "pm.test(\"check ISSUER_ACTIVE is FAIL\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"ISSUER_ACTIVE\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"FAIL\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-deactivated.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.5 Accreditation expired -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "",
+                  "pm.test(\"check ACCREDITATION_VALID is FAIL\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"ACCREDITATION_VALID\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"FAIL\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-accreditation-expired.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.6 Credential type not authorized -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "",
+                  "pm.test(\"check CREDENTIAL_TYPE_AUTHORIZED is FAIL\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"CREDENTIAL_TYPE_AUTHORIZED\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"FAIL\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-type-not-authorized.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.7 Issuer not in registry -> UNTRUSTED / not found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "pm.test(\"displayStatus is ISSUER_NOT_FOUND\", () => pm.expect(iv.displayStatus).to.eql(\"ISSUER_NOT_FOUND\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry-issuer-absent.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "2.8 No registry configured -> INCONCLUSIVE (never TRUSTED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is INCONCLUSIVE\", () => pm.expect(iv.overallStatus).to.eql(\"INCONCLUSIVE\"));",
+                  "pm.test(\"displayStatus is VERIFICATION_INCONCLUSIVE\", () => pm.expect(iv.displayStatus).to.eql(\"VERIFICATION_INCONCLUSIVE\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "pm.test(\"valid signature alone is not TRUSTED\", () => pm.expect(iv.overallStatus).to.not.eql(\"TRUSTED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry.type=none\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Policy B (DID only) and C (trust framework)",
+      "item": [
+        {
+          "name": "3.1 Policy B, no registry -> TRUSTED, org trust NOT_EVALUATED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is TRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"TRUSTED\"));",
+                  "pm.test(\"displayStatus is TRUSTED_ISSUER\", () => pm.expect(iv.displayStatus).to.eql(\"TRUSTED_ISSUER\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "pm.test(\"organizational trust not evaluated\", () => pm.expect(iv.organizationalTrust).to.eql(\"NOT_EVALUATED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy B, registry.type=none, issuer DID resolvable from the service\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "3.2 Policy B, revoked in registry -> still UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "pm.test(\"displayStatus is ISSUER_REVOKED\", () => pm.expect(iv.displayStatus).to.eql(\"ISSUER_REVOKED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy B, registry-revoked.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "3.3 Policy C, approved framework -> TRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is TRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"TRUSTED\"));",
+                  "pm.test(\"displayStatus is TRUSTED_ISSUER\", () => pm.expect(iv.displayStatus).to.eql(\"TRUSTED_ISSUER\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy C, approved-trust-frameworks=qa-framework, registry-active.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "3.4 Policy C, framework not approved -> UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "",
+                  "pm.test(\"check TRUST_FRAMEWORK_VALID is FAIL\", () => {",
+                  "  const c = (iv.checks || []).find(x => x.id === \"TRUST_FRAMEWORK_VALID\");",
+                  "  pm.expect(c, \"check present\").to.be.an(\"object\");",
+                  "  pm.expect(c.status).to.eql(\"FAIL\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy C, approved-trust-frameworks=qa-framework, registry-framework-other.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "3.5 Policy C, no approved frameworks configured -> INCONCLUSIVE (fail closed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is INCONCLUSIVE\", () => pm.expect(iv.overallStatus).to.eql(\"INCONCLUSIVE\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy C, approved-trust-frameworks empty, registry-active.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Infrastructure failure and enforce mode",
+      "item": [
+        {
+          "name": "4.1 REST registry stopped/unreachable -> INCONCLUSIVE, not UNTRUSTED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is INCONCLUSIVE\", () => pm.expect(iv.overallStatus).to.eql(\"INCONCLUSIVE\"));",
+                  "pm.test(\"displayStatus is VERIFICATION_INCONCLUSIVE\", () => pm.expect(iv.displayStatus).to.eql(\"VERIFICATION_INCONCLUSIVE\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});",
+                  "pm.test(\"never UNTRUSTED for an outage\", () => pm.expect(iv.overallStatus).to.not.eql(\"UNTRUSTED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, policy A, registry.type=rest, registry service STOPPED\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "4.2 enforce=true, issuer suspended -> verificationStatus INVALID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is INVALID\", () => pm.expect(j.verificationStatus).to.eql(\"INVALID\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is UNTRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"UNTRUSTED\"));",
+                  "pm.test(\"displayStatus is ISSUER_SUSPENDED\", () => pm.expect(iv.displayStatus).to.eql(\"ISSUER_SUSPENDED\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, enforce=true, policy A, registry-suspended.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        },
+        {
+          "name": "4.3 enforce=true, active issuer -> SUCCESS",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"verificationStatus is SUCCESS\", () => pm.expect(j.verificationStatus).to.eql(\"SUCCESS\"));",
+                  "pm.test(\"issuerVerification present\", () => pm.expect(j.issuerVerification).to.be.an(\"object\"));",
+                  "const iv = j.issuerVerification || {};",
+                  "pm.test(\"overallStatus is TRUSTED\", () => pm.expect(iv.overallStatus).to.eql(\"TRUSTED\"));",
+                  "pm.test(\"displayStatus is TRUSTED_ISSUER\", () => pm.expect(iv.displayStatus).to.eql(\"TRUSTED_ISSUER\"));",
+                  "",
+                  "pm.test(\"no internal details leaked\", () => {",
+                  "  const s = JSON.stringify(j);",
+                  "  pm.expect(s).to.not.match(/stack|Exception|java\\.|127\\.0\\.0\\.1|169\\.254|bearer/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{{vc_valid}}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/vc-verification?verifyIssuer=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vc-verification"
+              ],
+              "query": [
+                {
+                  "key": "verifyIssuer",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "**Server profile required:** enabled=true, enforce=true, policy A, registry-active.json\n\nSee QA-HANDOVER.md section 5 for how to start the service in this profile."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "featureEnabled",
+      "value": "true"
+    }
+  ]
+}
