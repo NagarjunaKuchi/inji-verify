@@ -134,7 +134,7 @@ None.
 
 ## 10. Limitations and not-yet-verified
 - **Not built with Maven** (Maven Central unreachable in the authoring environment). The `issuer` package was compiled with `javac` and tested (104 tests) against a small JUnit shim; Spring/Lombok/Mockito-dependent code was only checked against stubs. `VCVerificationServiceImplIssuerTest`, `VCVerificationControllerIssuerTest` and `IssuerVerificationConfigTest` need a real `mvn test`. Existing repo tests were not re-run after the DTO changes.
-- SDK was not type-checked or built (no dependencies installed). `verify-ui`: jest on the Result folder passes; `tsc` reports one error in an existing spec I did not touch.
+- SDK was not type-checked or built (no dependencies installed). `verify-ui` on `v0.14.0`: the new `IssuerVerificationSection` spec passes; three existing Result specs (`index`, `VcCardDisplay`, `ResultSummary`) and some `tsc` checks in existing specs already fail on the untouched tag, so the Result folder cannot be used as a regression signal there.
 - Supported issuer ids: `did:web`, `did:jwk`, https issuers via registry. `did:key`, `did:ion` etc. are not implemented. Anything else → `INCONCLUSIVE`.
 - Static registry loads at start-up only.
 - SD-JWT `x5c` chain validation is not performed; only key binding to the registry thumbprint where configured.
