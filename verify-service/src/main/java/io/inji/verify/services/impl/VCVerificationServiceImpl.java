@@ -7,6 +7,8 @@ import io.inji.verify.dto.verification.VCVerificationResultDto;
 import io.inji.verify.dto.verification.ExpiryCheckDto;
 import io.inji.verify.dto.verification.StatusCheckDto;
 import io.inji.verify.exception.CredentialStatusCheckException;
+import io.inji.verify.issuer.IssuerVerificationService;
+import io.inji.verify.issuer.model.IssuerVerificationResult;
 import io.inji.verify.services.VCVerificationService;
 import io.inji.verify.shared.Constants;
 import io.inji.verify.utils.Utils;
@@ -16,7 +18,9 @@ import io.mosip.vercred.vcverifier.constants.CredentialFormat;
 import io.mosip.vercred.vcverifier.data.CredentialStatusResult;
 import io.mosip.vercred.vcverifier.data.CredentialVerificationSummary;
 import io.mosip.vercred.vcverifier.data.VerificationResult;
+import io.mosip.vercred.vcverifier.data.VerificationStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
@@ -38,6 +42,10 @@ public class VCVerificationServiceImpl implements VCVerificationService {
     private final CredentialsVerifier credentialsVerifier;
     private final PixelPass pixelPass;
 
+    /** Absent (null) unless inji.verify.issuer-verification.enabled=true. Field injection keeps the constructor unchanged. */
+    @Autowired(required = false)
+    private IssuerVerificationService issuerVerificationService;
+
     public VCVerificationServiceImpl(CredentialsVerifier credentialsVerifier, PixelPass pixelPass) {
         this.credentialsVerifier = credentialsVerifier;
         this.pixelPass = pixelPass;
@@ -45,6 +53,11 @@ public class VCVerificationServiceImpl implements VCVerificationService {
 
     @Override
     public VCVerificationStatusDto verify(String vc, String contentType) throws CredentialStatusCheckException {
+        return verify(vc, contentType, null);
+    }
+
+    @Override
+    public VCVerificationStatusDto verify(String vc, String contentType, Boolean verifyIssuer) throws CredentialStatusCheckException {
         CredentialFormat format;
         if ("application/vc+sd-jwt".equalsIgnoreCase(contentType) || "application/dc+sd-jwt".equalsIgnoreCase(contentType)) {
             format = CredentialFormat.VC_SD_JWT;
@@ -61,7 +74,21 @@ public class VCVerificationServiceImpl implements VCVerificationService {
         CredentialVerificationSummary credentialVerificationSummary =
                 credentialsVerifier.verifyAndGetCredentialStatus(vc, format, statusPurposeList);
         log.debug("CredentialVerificationResult: {}", credentialVerificationSummary.getVerificationResult());
-        return new VCVerificationStatusDto(Utils.getVcVerificationStatus(credentialVerificationSummary));
+        VerificationStatus status = Utils.getVcVerificationStatus(credentialVerificationSummary);
+
+        // Issuer verification answers a different question from signature verification. Only run it for credentials
+        // whose signature is valid (SUCCESS, or EXPIRED which is signature-valid), so forged input cannot trigger
+        // outbound DID/registry requests.
+        IssuerVerificationResult issuerVerification = null;
+        boolean signatureValid = status == VerificationStatus.SUCCESS || status == VerificationStatus.EXPIRED;
+        if (issuerVerificationService != null && signatureValid && issuerVerificationService.shouldVerify(verifyIssuer)) {
+            issuerVerification = issuerVerificationService.verify(vc);
+            if (status == VerificationStatus.SUCCESS && issuerVerificationService.isEnforcing()
+                    && !issuerVerificationService.isTrusted(issuerVerification)) {
+                status = VerificationStatus.INVALID;
+            }
+        }
+        return new VCVerificationStatusDto(status, issuerVerification);
     }
 
     @Override
@@ -95,6 +122,20 @@ public class VCVerificationServiceImpl implements VCVerificationService {
 
         boolean allChecksSuccessful = populateAllChecksSuccessful(schemaAndSignatureCheck, expiryCheck, statusCheck, null);
 
-        return new VCVerificationResultDto(allChecksSuccessful, schemaAndSignatureCheck, expiryCheck, statusCheck, claims);
+        // Issuer verification answers a different question from signature verification (is the issuer trusted for
+        // this credential, not just was it signed). Only run for credentials whose signature is valid, so
+        // forged input cannot be used to trigger outbound DID/registry requests.
+        IssuerVerificationResult issuerVerification = null;
+        if (issuerVerificationService != null && schemaAndSignatureCheck.isValid()
+                && issuerVerificationService.shouldVerify(request.getVerifyIssuer())) {
+            issuerVerification = issuerVerificationService.verify(verifiableCredential);
+            if (issuerVerificationService.isEnforcing() && !issuerVerificationService.isTrusted(issuerVerification)) {
+                allChecksSuccessful = false;
+            }
+        }
+
+        VCVerificationResultDto result = new VCVerificationResultDto(allChecksSuccessful, schemaAndSignatureCheck, expiryCheck, statusCheck, claims);
+        result.setIssuerVerification(issuerVerification);
+        return result;
     }
 }

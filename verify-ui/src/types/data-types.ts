@@ -64,6 +64,7 @@ export type OvpFlowData = {
 export type VerificationResult = {
   vc?: AnyVc;
   vcStatus?: VcStatus;
+  issuerVerification?: IssuerVerificationResult;
 };
 
 export type LanguageObject = {
@@ -189,3 +190,24 @@ export type credentialSubject = {
   email: string;
   policyExpiresOn: string;
 };
+
+export type IssuerTrustStatus = "TRUSTED" | "UNTRUSTED" | "INCONCLUSIVE";
+
+export interface IssuerCheckResult {
+  id: string;
+  status: "PASS" | "FAIL" | "INCONCLUSIVE" | "NOT_EVALUATED" | "NOT_APPLICABLE" | string;
+  reasonCode?: string;
+  message?: string;
+}
+
+/** Subset of verify-service's issuerVerification block that the UI reads. Resolver/registry internals are deliberately not displayed. */
+export interface IssuerVerificationResult {
+  issuerId?: string;
+  issuerName?: string;
+  legalName?: string;
+  organizationType?: string;
+  jurisdiction?: string;
+  overallStatus: IssuerTrustStatus;
+  displayStatus?: string;
+  checks?: IssuerCheckResult[];
+}

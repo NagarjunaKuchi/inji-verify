@@ -175,5 +175,46 @@
       "proceed": "Proceed",
       "cancel": "Cancel"
     }
+  },
+  "IssuerVerification": {
+    "title": "Issuer Verification",
+    "status": {
+      "TRUSTED": "Trusted",
+      "UNTRUSTED": "Not trusted",
+      "INCONCLUSIVE": "Inconclusive"
+    },
+    "display": {
+      "TRUSTED_ISSUER": "Trusted issuer",
+      "UNTRUSTED_ISSUER": "Untrusted issuer",
+      "ISSUER_NOT_FOUND": "Issuer not found in the trust registry",
+      "ISSUER_SUSPENDED": "Issuer is suspended",
+      "ISSUER_REVOKED": "Issuer is revoked",
+      "VERIFICATION_INCONCLUSIVE": "Issuer could not be verified right now"
+    },
+    "inconclusiveNote": "The issuer could not be checked at this time. This does not mean the issuer is untrustworthy.",
+    "issuer": "Issuer",
+    "organizationType": "Type",
+    "jurisdiction": "Jurisdiction",
+    "showChecks": "Show checks",
+    "hideChecks": "Hide checks",
+    "checkStatus": {
+      "PASS": "Passed",
+      "FAIL": "Failed",
+      "INCONCLUSIVE": "Inconclusive",
+      "NOT_EVALUATED": "Not evaluated",
+      "NOT_APPLICABLE": "Not applicable"
+    },
+    "checks": {
+      "ISSUER_IDENTIFIER_VALID": "Issuer identifier valid",
+      "DID_RESOLUTION": "Issuer identity resolved",
+      "DID_DOCUMENT_VALID": "Issuer identity document valid",
+      "PUBLIC_KEY_VALID": "Signing key valid",
+      "SIGNATURE_KEY_AUTHORIZED": "Signing key belongs to issuer",
+      "ISSUER_REGISTERED": "Issuer registered",
+      "ISSUER_ACTIVE": "Issuer active",
+      "ACCREDITATION_VALID": "Accreditation valid",
+      "CREDENTIAL_TYPE_AUTHORIZED": "Authorized for this credential type",
+      "TRUST_FRAMEWORK_VALID": "Trust framework recognised"
+    }
   }
 }

@@ -3,7 +3,7 @@ import {
   PresentationDefinition,
   VPRequestBody,
 } from "../components/openid4vp-verification/OpenID4VPVerification.types";
-import { vcSubmissionBody } from "../components/qrcode-verification/QRCodeVerification.types";
+import { IssuerVerificationResult, vcSubmissionBody } from "../components/qrcode-verification/QRCodeVerification.types";
 import { QrData } from "../types/OVPSchemeQrData";
 import { isCWT } from "./cborUtils";
 
@@ -11,7 +11,11 @@ const generateNonce = (): string => {
   return btoa(Date.now().toString());
 };
 
-export const vcVerification = async (credential: unknown, url: string) => {
+export const vcVerificationDetailed = async (
+  credential: unknown,
+  url: string,
+  verifyIssuer?: boolean
+) => {
   let body: string;
   let contentType: string;
 
@@ -34,11 +38,17 @@ export const vcVerification = async (credential: unknown, url: string) => {
     body: body,
   };
 
+  // Only sent when set, so the server default applies otherwise.
+  const query = verifyIssuer === undefined ? "" : `?verifyIssuer=${verifyIssuer}`;
+
   try {
-    const response = await fetch(url + "/vc-verification", requestOptions);
+    const response = await fetch(url + "/vc-verification" + query, requestOptions);
     const data = await response.json();
     if (response.status !== 200) throw new Error(`Failed VC Verification due to: ${ data.error || "Unknown Error" }`);
-    return data.verificationStatus;
+    return {
+      verificationStatus: data.verificationStatus,
+      issuerVerification: data.issuerVerification as IssuerVerificationResult | undefined,
+    };
   } catch (error) {
     console.error(error);
     if (error instanceof Error) {
@@ -47,6 +57,11 @@ export const vcVerification = async (credential: unknown, url: string) => {
       throw new Error("An unknown error occurred");
     }
   }
+};
+
+export const vcVerification = async (credential: unknown, url: string) => {
+  const { verificationStatus } = await vcVerificationDetailed(credential, url);
+  return verificationStatus;
 };
 
 export const vcSubmission = async (

@@ -75,6 +75,12 @@ export type QRCodeVerificationProps = ExclusiveCallbacks & {
   scannerActive?: boolean;
 
   /**
+   * Ask the server to also verify the issuer. Omit to use the server default.
+   * Ignored by servers that do not have issuer verification enabled.
+   */
+  verifyIssuer?: boolean;
+
+  /**
    * A unique identifier for the client application.
    * Used in the OVP redirect flow.
    */
@@ -103,6 +109,35 @@ interface VerificationResult {
    * The status of the verification (e.g., "valid", "invalid", "expired").
    */
   vcStatus: VcStatus;
+
+  /**
+   * Issuer verification result. Present only when the server has issuer verification enabled
+   * and it ran for this credential.
+   */
+  issuerVerification?: IssuerVerificationResult;
+}
+
+export type IssuerTrustStatus = "TRUSTED" | "UNTRUSTED" | "INCONCLUSIVE";
+
+export interface IssuerCheckResult {
+  id: string;
+  status: string;
+  reasonCode?: string;
+  message?: string;
+}
+
+/** Issuer verification result as returned by verify-service. Only overallStatus is guaranteed. */
+export interface IssuerVerificationResult {
+  issuerId?: string;
+  issuerName?: string;
+  legalName?: string;
+  organizationType?: string;
+  jurisdiction?: string;
+  overallStatus: IssuerTrustStatus;
+  displayStatus?: string;
+  policy?: string;
+  checks?: IssuerCheckResult[];
+  [key: string]: unknown;
 }
 
 export type VerificationResults = VerificationResult[];

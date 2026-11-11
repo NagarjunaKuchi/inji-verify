@@ -20,8 +20,10 @@ public class VCVerificationController {
     }
 
     @PostMapping(path = "/vc-verification")
-    public VCVerificationStatusDto verify(@RequestBody String vc, @RequestHeader("Content-Type") String contentType) throws CredentialStatusCheckException {
-        return VCVerificationService.verify(vc, contentType);
+    public VCVerificationStatusDto verify(@RequestBody String vc, @RequestHeader("Content-Type") String contentType,
+                                          @RequestParam(name = "verifyIssuer", required = false) Boolean verifyIssuer) throws CredentialStatusCheckException {
+        // Without the parameter the original two-argument path is used, so behaviour is unchanged.
+        return verifyIssuer == null ? VCVerificationService.verify(vc, contentType) : VCVerificationService.verify(vc, contentType, verifyIssuer);
     }
 
     @PostMapping(path = "/v2/vc-verification", consumes = MediaType.APPLICATION_JSON_VALUE)

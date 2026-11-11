@@ -3,6 +3,7 @@ import ResultSummary from "./ResultSummary";
 import { useVerificationFlowSelector } from "../../../../redux/features/verification/verification.selector";
 import DisplayVcDetailsModal from "./DisplayVcDetailsModal";
 import DisplayVcDetailView from "./DisplayVcDetailView";
+import IssuerVerificationSection from "./IssuerVerificationSection";
 import { Button } from "../commons/Button";
 import { useTranslation } from "react-i18next";
 import { useAppDispatch } from "../../../../redux/hooks";
@@ -17,7 +18,7 @@ import { extractMappedClaim, isCWT, uint8ArrayToHex } from "../../../../utils/cb
 import { raiseAlert } from "../../../../redux/features/alerts/alerts.slice";
 
 const Result = () => {
-  const { vc, vcStatus } = useVerificationFlowSelector((state) => state.verificationResult ?? { vc: null, vcStatus: null });
+  const { vc, vcStatus, issuerVerification } = useVerificationFlowSelector((state) => state.verificationResult ?? { vc: null, vcStatus: null, issuerVerification: undefined });
   const { method } = useVerificationFlowSelector((state) => ({ method: state.method }));
   const [isModalOpen, setModalOpen] = useState(false);
   const [claims, setClaims] = useState<AnyVc | null>(null);
@@ -107,6 +108,7 @@ const Result = () => {
             className={`h-auto rounded-t-0 rounded-b-lg overflow-y-auto mt-[-30px]`}
           />
         )}
+        <IssuerVerificationSection issuerVerification={issuerVerification} />
         <div className="grid content-center justify-center">
           <Button
             title={t("Common:Button.verifyAnotherQrCode")}

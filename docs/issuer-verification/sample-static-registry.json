@@ -1,0 +1,22 @@
+{
+  "registryId": "example-registry",
+  "issuers": [
+    {
+      "issuerId": "did:web:issuer.example.org",
+      "name": "Example Authority",
+      "legalName": "Example Authority of Examplestan",
+      "organizationType": "Government",
+      "jurisdiction": "IN",
+      "status": "ACTIVE",
+      "validFrom": "2026-01-01T00:00:00Z",
+      "validUntil": "2028-12-31T23:59:59Z",
+      "accreditations": [
+        { "id": "acc-1", "authority": "Example Accreditation Board", "status": "ACTIVE", "validFrom": "2026-01-01T00:00:00Z", "validUntil": "2027-12-31T23:59:59Z" }
+      ],
+      "trustFrameworks": ["example-framework"],
+      "authorizedCredentialTypes": ["UniversityDegreeCredential"],
+      "keyThumbprints": ["<RFC 7638 SHA-256 JWK thumbprint, base64url>"],
+      "asOf": "2026-11-01T00:00:00Z"
+    }
+  ]
+}
