@@ -1,5 +1,7 @@
 # Issuer Details Verification
 
+See also: [`CHANGES.md`](CHANGES.md) (what changed), [`QA-HANDOVER.md`](QA-HANDOVER.md) (test guide), and the Postman collection and environment in this folder.
+
 Adds an optional, additive issuer check to both `POST /vc-verification` (legacy) and `POST /v2/vc-verification` (this branch is based on tag `v0.17.0`). It answers two independent questions and reports them separately:
 
 1. **Cryptographic authenticity** – was the credential signed by a key controlled by the issuer identifier?
