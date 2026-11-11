@@ -11,7 +11,6 @@ This document contains the following sections:
 - Folder Structure
 - Developer Setup
 - Demo Setup
-
 ---
 
 # Installations:
